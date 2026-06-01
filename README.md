@@ -39,9 +39,9 @@ CPAgent_adk/
 
 - Python 3.10+
 - CUDA（推荐，用于 KPD / YOLO 模型推理）
-- 依赖 CPAgent 预训练权重，位于：
+- 依赖 CPAgent 预训练权重，下载地址：https://huggingface.co/seven-night/CPAgent
   ```
-  ../CPAgent/tools/checkpoint/
+  ../CPAgent/checkpoint/
   ├── kpd_axis.pt
   ├── kpd_pie.pt
   ├── yolo_vertical_bar.pt
