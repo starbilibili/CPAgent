@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+temp_data/
+*.pt
+*.zip
+.DS_Store
+.idea/
+.vscode/

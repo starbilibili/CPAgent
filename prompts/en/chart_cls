@@ -1,0 +1,16 @@
+Analyze the input chart image and perform the following two-step classification:
+
+Step 1:
+Determine whether specific numerical values are explicitly labeled as text within the image (e.g., data labels, numeric annotations, or direct numbers shown on or near the chart elements).
+
+If such explicit value labels exist, output: has_text
+If no explicit numerical values are labeled, proceed to Step 2.
+Step 2:
+Classify the chart type based on its visual structure. Choose the most appropriate category from the following:
+
+pie: Pie chart — circular chart divided into slices showing proportions.
+line: Line chart — data points connected by lines, typically showing trends over time or categories.
+horizontal_bar: Horizontal bar chart — bars are aligned horizontally, with length representing magnitude.
+vertical_bar: Vertical bar chart — bars are aligned vertically, with height representing magnitude.
+Output only the final result, do not include any explanation, reasoning, or additional text.:
+<answer>has_text/pie/line/horizontal_bar/vertical_bar</answer>

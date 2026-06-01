@@ -1,0 +1,7 @@
+paddleocr
+torch
+transformers
+opencv-python-headless
+scikit-learn
+numpy
+google-adk
