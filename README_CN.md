@@ -1,101 +1,94 @@
 # CPAgent ADK
 
-基于 Google ADK 框架的图表解析 Agent，整合 [CPAgent](../CPAgent) 的核心能力，支持将图表图像自动解析为结构化数据表格。
+A chart parsing Agent based on the Google ADK framework, integrating the core capabilities of CPAgent to support automatic parsing of chart images into structured data tables.
 
-## 功能概述
+## Feature Overview
 
-- **图表类型识别**：柱状图、折线图、饼图、带文本标注图表等
-- **OCR 文本检测**：提取图表中的标题、图例、坐标轴刻度等文本
-- **关键点检测**：坐标轴刻度、饼图扇区、柱状图元素、折线数据点
-- **坐标轴回归**：建立像素坐标到数值的线性映射
-- **表格生成**：输出 Markdown 表格，支持转换为 CSV
-- **多模态 LLM**：Qwen-VL 本地推理
-- **ADK 兼容**：可选接入 Google ADK Agent 框架，不可用时自动回退到自定义实现
+- **Chart Type Recognition**: Bar charts, line charts, pie charts, charts with text annotations, etc.
+- **OCR Text Detection**: Extracts text from charts such as titles, legends, and axis ticks.
+- **Keypoint Detection**: Axis ticks, pie chart sectors, bar chart elements, and line data points.
+- **Axis Regression**: Establishes a linear mapping from pixel coordinates to numerical values.
+- **Table Generation**: Outputs Markdown tables, with support for CSV conversion.
+- **Multimodal LLM**: Local inference using Qwen-VL.
+- **ADK Compatibility**: Optional integration with the Google ADK Agent framework; automatically falls back to a custom implementation if unavailable.
 
-## 项目结构
+## Project Structure
 
-```
+```text
 CPAgent_adk/
-├── config.py             # 模型路径与目录配置（统一管理）
-├── agent.py              # 主 Agent 入口（ChartParseAgentADK）
-├── llm.py                # LLM 封装（Qwen-VL）
-├── prompt.py             # 提示词加载与 ADK 指令
-├── tools/                # 工具管理器与各检测工具
-│   ├── __init__.py       # ToolManager 统一调度
-│   ├── tool_ocr.py       # OCR 包装器
-│   ├── tool_kpd.py       # 关键点检测（坐标轴 / 饼图）
-│   ├── tool_yolo.py      # 柱状图分割检测
-│   └── tool_auxiline.py  # 折线图辅助线检测
-├── prompts/              # 中英文提示词模板
-│   ├── ch/               # 中文提示词
-│   └── en/               # 英文提示词
+├── config.py             # Model paths and directory configuration (centralized management)
+├── agent.py              # Main Agent entry point (ChartParseAgentADK)
+├── llm.py                # LLM wrapper (Qwen-VL)
+├── prompt.py             # Prompt loading and ADK instructions
+├── tools/                # Tool manager and individual detection tools
+│   ├── __init__.py       # Unified dispatch via ToolManager
+│   ├── tool_ocr.py       # OCR wrapper
+│   ├── tool_kpd.py       # Keypoint detection (axis / pie chart)
+│   ├── tool_yolo.py      # Bar chart segmentation detection
+│   └── tool_auxiline.py  # Line chart auxiliary line detection
+├── prompts/              # Chinese and English prompt templates
+│   ├── ch/               # Chinese prompts
+│   └── en/               # English prompts
 ├── requirements.txt
-└── test_*.py             # 单元测试脚本
+└── test_*.py             # Unit test scripts
 ```
 
-> **注意**：根目录下的 `tools.py` 与 `tools/` 包内容重复，实际运行时 Python 优先加载 `tools/` 包，`tools.py` 可视为遗留文件。
+**Note**: The `tools.py` file in the root directory duplicates the contents of the `tools/` package. During runtime, Python will prioritize loading the `tools/` package. The `tools.py` file can be considered a legacy artifact.
 
-## 环境要求
+## Environment Requirements
 
 - Python 3.10+
-- CUDA（推荐，用于 KPD / YOLO 模型推理）
-- 依赖 CPAgent 预训练权重，下载地址：https://huggingface.co/seven-night/CPAgent
-  ```
-  ../CPAgent/checkpoint/
-  ├── kpd_axis.pt
-  ├── kpd_pie.pt
-  ├── yolo_vertical_bar.pt
-  └── yolo_horizontal_bar.pt
-  ```
+- CUDA (Recommended, for KPD / YOLO model inference)
+- Requires CPAgent pre-trained weights. Download link: https://huggingface.co/seven-night/CPAgent
 
-## 安装
+## Installation
 
 ```bash
 cd /data5/home/xiechenyu2023/project/ChartQA/CPAgent_adk
 pip install -r requirements.txt
 
-# CPAgent 工具额外依赖（若尚未安装）
+# Additional dependencies for CPAgent tools (if not already installed)
 pip install paddleocr paddlepaddle ultralytics pillow
 ```
 
-## 配置
+## Configuration
 
-### 模型路径一览
+### Model Paths Overview
 
-所有模型加载路径集中在 `config.py` 管理，可通过环境变量覆盖默认值。
+All model loading paths are centrally managed in `config.py` and can be overridden via environment variables.
 
-| 模型 / 工具 | 默认路径 | 环境变量 | 说明 |
-|-------------|----------|----------|------|
-| **Qwen-VL** | `/lustre/home/xiechenyu2023/saved_model/qwen3/Qwen3-VL-8B-Instruct` | `QWEN_VL_MODEL_PATH` | 多模态 LLM，用于图表分析与表格生成 |
-| **KPD 坐标轴** | `../CPAgent/tools/checkpoint/kpd_axis.pt` | `KPD_AXIS_PATH` | 坐标轴刻度关键点检测 |
-| **KPD 饼图** | `../CPAgent/tools/checkpoint/kpd_pie.pt` | `KPD_PIE_PATH` | 饼图扇区关键点检测 |
-| **YOLO 垂直柱** | `../CPAgent/tools/checkpoint/yolo_vertical_bar.pt` | `YOLO_VERTICAL_BAR_PATH` | 垂直柱状图分割 |
-| **YOLO 水平条** | `../CPAgent/tools/checkpoint/yolo_horizontal_bar.pt` | `YOLO_HORIZONTAL_BAR_PATH` | 水平条形图分割 |
-| **PaddleOCR** | 自动下载 | — | OCR 文本检测，首次运行自动拉取 |
-| **Auxiline** | 无需权重 | — | 折线图辅助线检测（纯算法） |
+| Model / Tool | Default Path | Environment Variable | Description |
+| ------ |------ |------ |------ |
+| **Qwen-VL** | `/lustre/home/xiechenyu2023/saved_model/qwen3/Qwen3-VL-8B-Instruct` | `QWEN_VL_MODEL_PATH` | Multimodal LLM for chart analysis and table generation |
+| **KPD Axis** | `../CPAgent/tools/checkpoint/kpd_axis.pt` | `KPD_AXIS_PATH` | Axis tick keypoint detection |
+| **KPD Pie** | `../CPAgent/tools/checkpoint/kpd_pie.pt` | `KPD_PIE_PATH` | Pie chart sector keypoint detection |
+| **YOLO Vertical Bar** | `../CPAgent/tools/checkpoint/yolo_vertical_bar.pt` | `YOLO_VERTICAL_BAR_PATH` | Vertical bar chart segmentation |
+| **YOLO Horizontal Bar** | `../CPAgent/tools/checkpoint/yolo_horizontal_bar.pt` | `YOLO_HORIZONTAL_BAR_PATH` | Horizontal bar chart segmentation |
+| **PaddleOCR** | Auto-download | — | OCR text detection; automatically fetched on first run |
+| **Auxiline** | No weights required | — | Line chart auxiliary line detection (pure algorithm) |
 
-目录级环境变量：
+Directory-level Environment Variables:
 
-| 环境变量 | 默认值 | 说明 |
-|----------|--------|------|
-| `CPAGENT_ROOT` | `../CPAgent` | CPAgent 项目根目录 |
-| `CPAGENT_TOOLS_DIR` | `{CPAGENT_ROOT}/tools` | CPAgent 工具源码目录 |
-| `CPAGENT_CHECKPOINT_DIR` | `{CPAGENT_TOOLS_DIR}/checkpoint` | 所有 `.pt` 权重所在目录 |
-| `CPAGENT_ADK_TEMP_DIR` | `./temp_data` | 中间结果输出目录 |
-| `CPAGENT_TEST_DATA_DIR` | `{CPAGENT_ROOT}/data` | 测试图像目录 |
+| Environment Variable | Default Value | Description |
+| ------ |------ |------ |
+| `CPAGENT_ROOT` | `../CPAgent` | Root directory of the CPAgent project |
+| `CPAGENT_TOOLS_DIR` | `{CPAGENT_ROOT}/tools` | CPAgent tool source code directory |
+| `CPAGENT_CHECKPOINT_DIR` | `{CPAGENT_TOOLS_DIR}/checkpoint` | Directory containing all `.pt` weight files |
+| `CPAGENT_ADK_TEMP_DIR` | `./temp_data` | Output directory for intermediate results |
+| `CPAGENT_TEST_DATA_DIR` | `{CPAGENT_ROOT}/data` | Test image directory |
 
-检查模型路径是否就绪：
+Check if model paths are ready:
 
 ```bash
 python config.py
 ```
 
-### 初始化 Agent
+### Initialize Agent
 
 ```bash
-# .env 或 shell 环境变量
+# .env or shell environment variables
 QWEN_VL_MODEL_PATH=/path/to/Qwen3-VL-8B-Instruct
-# 可选：统一修改权重目录
+# Optional: uniformly modify the weights directory
 CPAGENT_CHECKPOINT_DIR=/path/to/checkpoint
 ```
 
@@ -103,9 +96,9 @@ CPAGENT_CHECKPOINT_DIR=/path/to/checkpoint
 agent = create_agent(model_path="/path/to/Qwen3-VL-8B-Instruct")
 ```
 
-## 快速开始
+## Quick Start
 
-### 图表转表格（主流程）
+### Chart-to-Table (Main Pipeline)
 
 ```python
 from agent import create_agent
@@ -117,26 +110,26 @@ table_md, analysis_json = agent.chart2table(image_path)
 
 print(table_md)
 
-# 可选：保存为 CSV
+# Optional: Save as CSV
 agent.conver_md2csv(table_md, "output.csv")
 ```
 
-### 通过 run 接口交互
+### Interactive via `run` Interface
 
 ```python
 agent = create_agent(model_path="/path/to/Qwen3-VL-8B-Instruct")
 
-# 图表转表格
-result = agent.run("图表转表格", image_path="/path/to/chart.png")
+# Chart-to-Table
+result = agent.run("Convert chart to table", image_path="/path/to/chart.png")
 
-# 图表分析
-result = agent.run("图表分析", image_path="/path/to/chart.png")
+# Chart Analysis
+result = agent.run("Analyze chart", image_path="/path/to/chart.png")
 
-# 通用问答
-result = agent.run("这张图表的主要趋势是什么？", image_path="/path/to/chart.png")
+# General Question Answering
+result = agent.run("What is the main trend in this chart?", image_path="/path/to/chart.png")
 ```
 
-### 分步调用
+### Step-by-step Invocation
 
 ```python
 agent = create_agent(model_path="/path/to/Qwen3-VL-8B-Instruct")
@@ -144,87 +137,87 @@ agent = create_agent(model_path="/path/to/Qwen3-VL-8B-Instruct")
 # 1. OCR
 ocr_results = agent.ocr(image_path)
 
-# 2. 图表分析
+# 2. Chart Analysis
 analysis, raw = agent.chart_analysis(json.dumps(ocr_results), image_path)
 
-# 3. 坐标轴回归
+# 3. Axis Regression
 slope, intercept, flag, cat_coords = agent.get_axis_regression_model(image_path, analysis)
 ```
 
-## 处理流程
+## Processing Pipeline
 
-```
-输入图表图像
+```text
+Input Chart Image
     │
     ▼
-OCR 文本检测
+OCR Text Detection
     │
     ▼
-LLM 图表分析（类型分类 + 坐标轴属性 + 文本语义分类）
+LLM Chart Analysis (Type Classification + Axis Properties + Text Semantic Classification)
     │
-    ├── has_text ──────────► 直接生成 Markdown 表格
+    ├── has_text ──────────► Directly Generate Markdown Table
     │
-    ├── pie ───────────────► KPD 饼图检测 ──► 生成表格
+    ├── pie ───────────────► KPD Pie Detection ──► Generate Table
     │
-    └── bar / line ────────► 坐标轴关键点检测
+    └── bar / line ────────► Axis Keypoint Detection
                               │
                               ▼
-                         线性回归（像素→数值）
+                         Linear Regression (Pixel → Value)
                               │
                     ┌─────────┴─────────┐
                     ▼                   ▼
-              YOLO 柱检测          辅助线折线检测
+              YOLO Bar Detection   Auxiline Detection
                     │                   │
                     └─────────┬─────────┘
                               ▼
-                         生成 Markdown 表格
+                         Generate Markdown Table
 ```
 
-## 支持的图表类型
+## Supported Chart Types
 
-| chart_type       | 说明           | 使用工具                    |
-|------------------|----------------|-----------------------------|
-| `has_text`       | 元素上直接标注数值 | OCR + LLM                  |
-| `pie`            | 饼图 / 环形图   | KPDTool (pie)              |
-| `vertical_bar`   | 垂直柱状图      | KPDTool + YOLOTool         |
-| `horizontal_bar` | 水平条形图      | KPDTool + YOLOTool         |
-| `line`           | 折线图          | KPDTool + AuxilineTool     |
+| chart_type | Description | Tools Used |
+| ------ |------ |------ |
+| `has_text` | Values directly annotated on elements | OCR + LLM |
+| `pie` | Pie / Donut Chart | KPDTool (pie) |
+| `vertical_bar` | Vertical Bar Chart | KPDTool + YOLOTool |
+| `horizontal_bar` | Horizontal Bar Chart | KPDTool + YOLOTool |
+| `line` | Line Chart | KPDTool + AuxilineTool |
 
-## 测试
+## Testing
 
 ```bash
-# 模块导入测试
+# Module import test
 python test_import.py
 
-# 工具导入测试
+# Tool import test
 python test_tools_import.py
 
-# 工具功能测试（需要测试图像和模型权重）
+# Tool functionality test (requires test images and model weights)
 python test_functionality.py
 ```
 
-## ADK 模式
+## ADK Mode
 
-当安装了 `google-adk` 且环境可用时，Agent 会自动注册以下工具到 ADK：
+When `google-adk` is installed and available, the Agent will automatically register the following tools with ADK:
 
-- `ocr_detect` — OCR 文本检测
-- `axis_detect` — 坐标轴关键点检测
-- `pie_detect` — 饼图扇区检测
-- `bar_detect` — 柱状图检测
-- `auxiline_detect` — 折线辅助线检测
+- `ocr_detect` — OCR text detection
+- `axis_detect` — Axis keypoint detection
+- `pie_detect` — Pie chart sector detection
+- `bar_detect` — Bar chart detection
+- `auxiline_detect` — Line chart auxiliary line detection
 
-ADK 不可用时，系统自动回退到 `ChartParseAgentADK` 的内置流程，不影响核心功能。
+If ADK is unavailable, the system automatically falls back to the built-in pipeline of `ChartParseAgentADK`, ensuring core functionalities remain unaffected.
 
-## 与 CPAgent 的关系
+## Relationship with CPAgent
 
-本项目是 [CPAgent](../CPAgent) 的 ADK 适配版本：
+This project is an ADK-adapted version of CPAgent:
 
-- 复用 CPAgent 的预训练模型权重和原始工具实现
-- `tools/` 下的各工具为 CPAgent 工具的包装器，原始工具不可用时提供模拟回退
-- 核心 `chart2table` 流程与 CPAgent 的 `ChartParseAgent` 保持一致
+- Reuses CPAgent's pre-trained model weights and original tool implementations.
+- The tools under `tools/` act as wrappers for CPAgent tools, providing simulated fallbacks when original tools are unavailable.
+- The core `chart2table` pipeline remains consistent with CPAgent's `ChartParseAgent`.
 
-## 已知限制
+## Known Limitations
 
-- 暂不支持堆叠柱状图（`stacked bar`）等复合图表类型
-- 模型权重路径可通过 `config.py` 或环境变量配置，详见「配置 → 模型路径一览」
-- 工具包装器在原始 CPAgent 工具不可用时回退到模拟实现，返回随机/占位数据，仅用于开发调试
+- Compound chart types such as stacked bar charts (`stacked bar`) are currently not supported.
+- Model weight paths can be configured via `config.py` or environment variables; see "Configuration → Model Paths Overview".
+- When original CPAgent tools are unavailable, tool wrappers fall back to simulated implementations that return random/placeholder data. This is strictly for development and debugging purposes.
